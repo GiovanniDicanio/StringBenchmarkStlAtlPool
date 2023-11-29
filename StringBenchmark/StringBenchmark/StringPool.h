@@ -12,6 +12,9 @@
 #include <Windows.h>    // Windows Platform SDK
 
 
+//---------------------------------------------------------------------------------------
+// String Pool Allocator - Efficiently allocates strings from a custom memory pool
+//---------------------------------------------------------------------------------------
 class CStringPoolAllocator
 {
 public:
@@ -22,7 +25,7 @@ public:
     ~CStringPoolAllocator();
 
     // Allocate a string deep-copying it from a [begin, end) character interval.
-    // [begin, end) is as in common STL convention (i.e. the end pointer is excluded).
+    // [begin, end) is as in common STL convention (i.e. the end pointer is *excluded*).
     // Throw std::bad_alloc on error.
     PWSTR AllocString(const WCHAR* pchBegin, const WCHAR* pchEnd);
 
@@ -59,7 +62,7 @@ private:
     //
     //
     //      +--------------+
-    //      |  m_phdrPrev  |   <--- Pointer to previous chunk header (linked list)
+    //      |  m_phdrPrev  |   <--- Pointer to previous chunk header (in a singly-linked list)
     //      +--------------+
     //      |   m_cbSize   |   <--- Total size, in bytes, of the current chunk
     //      +--------------+
@@ -91,14 +94,14 @@ private:
     enum
     {
         // Minimum chunk size, in bytes
-        kMinCbChunk = 512 * 1024, // was 32000 in the original code
+        kcbMinChunkSize = 512 * 1024, // was 32000 in the original code
 
         // Do not accept strings larger than 1MB WCHARs
-        kMaxCharAlloc = 1024 * 1024
+        kchMaxCharAlloc = 1024 * 1024
     };
 
-    WCHAR*          m_pchNext       = nullptr;  // First available byte
-    WCHAR*          m_pchLimit      = nullptr;  // One past last available byte
+    WCHAR*          m_pchNext       = nullptr;  // First available byte in current chunk
+    WCHAR*          m_pchLimit      = nullptr;  // One past last available byte in current chunk
     ChunkHeader*    m_phdrCurrent   = nullptr;  // Current chunk to serve memory allocations
     SIZE_T          m_cbGranularity = 0;        // Allocation granularity (used with VirtualAlloc)
 
@@ -112,6 +115,10 @@ private:
     static SIZE_T GetAllocationGranularity();
 };
 
+
+//=======================================================================================
+//                          Inline Method Implementations
+//=======================================================================================
 
 inline CStringPoolAllocator::CStringPoolAllocator()
     : m_cbGranularity(GetAllocationGranularity())
@@ -140,7 +147,7 @@ inline void CStringPoolAllocator::Destroy()
         // VirtualFree(hdr.m_phdrPrev, hdr.m_cb, MEM_RELEASE);
         //
 
-        // Save pointer to the previous chunk before destroying the current chunk
+        // Save pointer to the previous chunk *before* destroying the current chunk
         ChunkHeader* phdrPrev = hdr.m_phdrPrev;
 
         // Free the current chunk
@@ -176,12 +183,14 @@ inline PWSTR CStringPoolAllocator::AllocString(const WCHAR* pchBegin, const WCHA
     // Consider +1 to include the terminating NUL in the string to be allocated
     const SIZE_T cch = pchEnd - pchBegin + 1;
 
-    PWSTR psz = m_pchNext;
-
     // If there is enough room in the current chunk, just carve memory from it
     if (m_pchNext + cch <= m_pchLimit)
     {
-        // There is enough room in the current chunk: allocation is just a pointer increase
+        // Begin of the newly allocated string:
+        // start from the first available slot in the current chunk
+        WCHAR* const psz = m_pchNext;
+
+        // There is enough room in the current chunk: so allocation is just a pointer increase :-)
         m_pchNext += cch;
 
         // Original code:
@@ -190,6 +199,7 @@ inline PWSTR CStringPoolAllocator::AllocString(const WCHAR* pchBegin, const WCHA
         // Exclude the terminating NUL from the character copy
         if (cch > 1)
         {
+            // Copy characters from the input source string to this memory area pointed to by psz
             wmemcpy(psz, pchBegin, cch - 1);
         }
 
@@ -197,36 +207,40 @@ inline PWSTR CStringPoolAllocator::AllocString(const WCHAR* pchBegin, const WCHA
         // so there's no need to write the terminating NUL
         _ASSERTE(psz[cch - 1] == L'\0');
 
+        // Return the pointer to the beginning of the newly allocated string
         return psz;
     }
 
     // The original code used *goto* OOO (Out of Memory)
     // :(
 
-    // Check that the requested string length doesn't exceed max length limit
-    if (cch > kMaxCharAlloc)
+    // Check that the requested string length doesn't exceed the max length limit
+    if (cch > kchMaxCharAlloc)
     {
         // String is too large
         throw std::bad_alloc();
     }
 
     // There is not enough room in the current chunk: allocate a new block
-    SIZE_T cbAlloc = RoundUp(cch * sizeof(WCHAR) + sizeof(ChunkHeader),
+    const SIZE_T cbAlloc = RoundUp(cch * sizeof(WCHAR) + sizeof(ChunkHeader),
                              m_cbGranularity);
-    BYTE * pbNext = static_cast<BYTE*>(VirtualAlloc(nullptr, cbAlloc, MEM_COMMIT, PAGE_READWRITE));
-    if (!pbNext)
+    BYTE* const pbNext = static_cast<BYTE*>(VirtualAlloc(nullptr,
+                                                         cbAlloc,
+                                                         MEM_COMMIT,
+                                                         PAGE_READWRITE));
+    if (pbNext == nullptr)
     {
         // Out of memory
         throw std::bad_alloc();
     }
 
-    // Hook the newly allocated chunk
-    m_pchLimit = reinterpret_cast<WCHAR*>(pbNext + cbAlloc);
+    // Hook the newly allocated chunk to the current linked list
     ChunkHeader* phdrCurrent = reinterpret_cast<ChunkHeader*>(pbNext);
     phdrCurrent->m_phdrPrev = m_phdrCurrent;
     phdrCurrent->m_cbSize = cbAlloc;
     m_phdrCurrent = phdrCurrent;
     m_pchNext = reinterpret_cast<WCHAR*>(phdrCurrent + 1);
+    m_pchLimit = reinterpret_cast<WCHAR*>(pbNext + cbAlloc);
 
     // Retry the string allocation using the newly allocated chunk
     return AllocString(pchBegin, pchEnd);
@@ -250,6 +264,6 @@ inline SIZE_T CStringPoolAllocator::GetAllocationGranularity()
 {
     SYSTEM_INFO si;
     GetSystemInfo(&si);
-    return RoundUp(sizeof(ChunkHeader) + kMinCbChunk,
+    return RoundUp(sizeof(ChunkHeader) + kcbMinChunkSize,
                    si.dwAllocationGranularity);
 }

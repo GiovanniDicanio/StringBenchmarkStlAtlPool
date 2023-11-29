@@ -2,17 +2,16 @@
 
 
 #include <crtdbg.h>     // _ASSERTE
-#include <string.h>
-#include <wchar.h>      // wcslen, wmemcpy
+#include <wchar.h>      // wcslen, wmemcpy, wcscmp
 #include <new>          // std::bad_alloc
 
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <string>
-#include <vector>
+#include <algorithm>    // std::shuffle, std::sort
+#include <iostream>     // std::cout
+#include <random>       // std::mt19937
+#include <string>       // std::wstring
+#include <vector>       // std::vector
 
-#include <atldef.h>
-#include <atlstr.h>
+#include <atldef.h>     // ATL basic definitions
+#include <atlstr.h>     // CString
 
-#include <windows.h>
+#include <windows.h>    // Windows Platform SDK

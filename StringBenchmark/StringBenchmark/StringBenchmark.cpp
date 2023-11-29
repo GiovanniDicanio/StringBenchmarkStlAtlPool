@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 //
-// Test ATL CStringW vs. STL wstring vs. Custom String Pool Allocator
+// Test ATL's CStringW vs. STL's wstring vs. Custom String Pool Allocator
 //
 // By Giovanni Dicanio
 //
@@ -11,19 +11,21 @@
 // Define TEST_TINY_STRINGS to run the benchmark with tiny strings
 // (STL friendly thanks to SSO).
 //
-//#define TEST_TINY_STRINGS
+// Uncomment the following line for testing with tiny strings:
+//#define TEST_TINY_STRINGS     1
+//
 
 
-//
-// Includes
-//
+//---------------------------------------------------------------------------------------
+//                              Includes
+//---------------------------------------------------------------------------------------
 
 #include <crtdbg.h>     // _ASSERTE
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <string>
-#include <vector>
+#include <algorithm>    // std::shuffle, std::sort
+#include <iostream>     // std::cout
+#include <random>       // std::mt19937
+#include <string>       // std::wstring
+#include <vector>       // std::vector
 
 #include <atlstr.h>     // CString
 
@@ -31,33 +33,38 @@
 
 #include "StringPool.h" // Custom string pool allocator
 
-using namespace std;
+
+using std::cout;
+using std::vector;
+using std::wstring;
 
 
-//
+
+//---------------------------------------------------------------------------------------
 // Performance Counter Helpers
-//
+//---------------------------------------------------------------------------------------
 
-long long Counter()
+inline long long PerfCounter() noexcept
 {
     LARGE_INTEGER li;
     QueryPerformanceCounter(&li);
     return li.QuadPart;
 }
 
-long long Frequency()
+inline long long PerfFrequency() noexcept
 {
     LARGE_INTEGER li;
     QueryPerformanceFrequency(&li);
     return li.QuadPart;
 }
 
-void PrintTime(const long long start, const long long finish, const char* const s)
+inline void PrintTime(const long long start, const long long finish, const char* const message)
 {
-    cout << s << ": " << (finish - start) * 1000.0 / Frequency() << " ms" << endl;
+    cout << message << ": " << (finish - start) * 1000.0 / PerfFrequency() << " ms" << std::endl;
 }
 
 
+//---------------------------------------------------------------------------------------
 //
 // Making Uniform String Comparisons
 // =================================
@@ -69,18 +76,19 @@ void PrintTime(const long long start, const long long finish, const char* const 
 // To make string comparisons uniform, I introduced the following helper functions
 // to always call wcscmp.
 //
+//---------------------------------------------------------------------------------------
 
-bool ComparePool(const wchar_t* psz1, const wchar_t* psz2)
+inline bool ComparePool(const wchar_t* psz1, const wchar_t* psz2)
 {
     return wcscmp(psz1, psz2) < 0;
 }
 
-bool CompareStl(const std::wstring& s1, const std::wstring& s2)
+inline bool CompareStl(const std::wstring& s1, const std::wstring& s2)
 {
     return wcscmp(s1.c_str(), s2.c_str()) < 0;
 }
 
-bool CompareAtl(const CString& s1, const CString& s2)
+inline bool CompareAtl(const CString& s1, const CString& s2)
 {
     // return wcscmp(s1, s2) < 0;
     // ATL CString already uses wcscmp
@@ -88,13 +96,14 @@ bool CompareAtl(const CString& s1, const CString& s2)
 }
 
 
-//
+//---------------------------------------------------------------------------------------
 // Benchmark
-//
+//---------------------------------------------------------------------------------------
 int main()
 {
-    cout << "*** String Benchmark -- by Giovanni Dicanio ***\n\n";
+    cout << " *** String Benchmark (2023) -- by Giovanni Dicanio *** \n\n";
 
+    // Build a vector of shuffled strings that will be used for the benchmark
     const auto shuffled = []() -> vector<wstring> {
         const wstring lorem[] = {
             L"Lorem ipsum dolor sit amet, consectetuer adipiscing elit.",
@@ -109,31 +118,40 @@ int main()
 
         vector<wstring> v;
 
-        for (int i = 0; i < (400*1000) ; ++i)
+#ifdef _DEBUG
+        // Just a few strings in *slow running* debug builds
+        constexpr int kStringRepeatCount = 10;
+#else
+        // Lots of strings in release builds
+        constexpr int kStringRepeatCount = 400 * 1000; // 400K
+#endif // _DEBUG
+
+        for (int i = 0; i < kStringRepeatCount ; ++i)
         {
-            for (auto& s : lorem)
+            for (const auto & s : lorem)
             {
 #ifdef TEST_TINY_STRINGS
                 // Tiny strings
                 UNREFERENCED_PARAMETER(s);
-                v.push_back(L"#" + to_wstring(i));
+                v.push_back(L"#" + std::to_wstring(i));
 #else
-                v.push_back(s + L" (#" + to_wstring(i) + L")");
+                v.push_back(s + L" (#" + std::to_wstring(i) + L")");
 #endif
             }
         }
 
-        mt19937 prng(1980);
+        std::mt19937 prng(1987);    // 1987 : Amiga 500! :)
 
-        shuffle(v.begin(), v.end(), prng);
+        std::shuffle(v.begin(), v.end(), prng);
 
         return v;
     }();
 
+    // shuffled_ptrs is a vector of raw *observing* pointers to the previous shuffled strings
     const auto shuffled_ptrs = [&]() -> vector<const wchar_t*> {
         vector<const wchar_t*> v;
 
-        for (auto& s : shuffled) {
+        for (const auto& s : shuffled) {
             v.push_back(s.c_str());
         }
 
@@ -144,7 +162,15 @@ int main()
     cout << "Testing tiny strings (STL friendly thanks to SSO).\n";
 #endif
 
-    cout << "String count: " << (shuffled.size() / 1000) << "k\n\n";
+    cout << "String count: ";
+    if (shuffled.size() > 1000)
+    {
+        cout << (shuffled.size() / 1000) << "k\n\n";
+    }
+    else
+    {
+        cout << shuffled.size() << "\n\n";
+    }
 
     long long start = 0;
     long long finish = 0;
@@ -154,67 +180,79 @@ int main()
 
     //
     // Measure creation times
+    // ----------------------
     //
 
     cout << "=== Creation === \n";
 
-    start = Counter();
+    //
+    // Creation #1
+    //
+
+    start = PerfCounter();
     vector<ATL::CStringW> atl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL1");
 
-    start = Counter();
+    start = PerfCounter();
     vector<wstring> stl1 = shuffled;
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL1");
 
-    start = Counter();
+    start = PerfCounter();
     vector<const wchar_t*> pool1;
     pool1.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs) {
         pool1.push_back(stringPool.AllocString(psz));
     }
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL1");
 
+    //
+    // Creation #2
+    //
 
-    start = Counter();
+    start = PerfCounter();
     vector<ATL::CStringW> atl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL2");
 
-    start = Counter();
+    start = PerfCounter();
     vector<wstring> stl2 = shuffled;
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL2");
 
-    start = Counter();
+    start = PerfCounter();
     vector<const wchar_t*> pool2;
     pool2.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs) {
         pool2.push_back(stringPool.AllocString(psz));
     }
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL2");
 
 
-    start = Counter();
+    //
+    // Creation #3
+    //
+
+    start = PerfCounter();
     vector<ATL::CStringW> atl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL3");
 
-    start = Counter();
+    start = PerfCounter();
     vector<wstring> stl3 = shuffled;
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL3");
 
-    start = Counter();
+    start = PerfCounter();
     vector<const wchar_t*> pool3;
     pool3.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs) {
         pool3.push_back(stringPool.AllocString(psz));
     }
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL3");
 
     cout << '\n';
@@ -222,54 +260,67 @@ int main()
 
     //
     // Measure sorting times
+    // ---------------------
     //
 
     cout << "=== Sorting === \n";
 
-    start = Counter();
+    //
+    // Sort #1
+    //
+
+    start = PerfCounter();
     sort(atl1.begin(), atl1.end(), CompareAtl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL1");
 
-    start = Counter();
+    start = PerfCounter();
     sort(stl1.begin(), stl1.end(), CompareStl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL1");
 
-    start = Counter();
+    start = PerfCounter();
     sort(pool1.begin(), pool1.end(), ComparePool);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL1");
 
 
-    start = Counter();
+    //
+    // Sort #2
+    //
+
+    start = PerfCounter();
     sort(atl2.begin(), atl2.end(), CompareAtl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL2");
 
-    start = Counter();
+    start = PerfCounter();
     sort(stl2.begin(), stl2.end(), CompareStl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL2");
 
-    start = Counter();
+    start = PerfCounter();
     sort(pool2.begin(), pool2.end(), ComparePool);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL2");
 
 
-    start = Counter();
+    //
+    // Sort #3
+    //
+
+    start = PerfCounter();
     sort(atl3.begin(), atl3.end(), CompareAtl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "ATL3");
 
-    start = Counter();
+    start = PerfCounter();
     sort(stl3.begin(), stl3.end(), CompareStl);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "STL3");
 
-    start = Counter();
+    start = PerfCounter();
     sort(pool3.begin(), pool3.end(), ComparePool);
-    finish = Counter();
+    finish = PerfCounter();
     PrintTime(start, finish, "POL3");
 }
