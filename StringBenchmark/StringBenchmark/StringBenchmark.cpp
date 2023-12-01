@@ -104,8 +104,10 @@ int main()
     cout << " *** String Benchmark (2023) -- by Giovanni Dicanio *** \n\n";
 
     // Build a vector of shuffled strings that will be used for the benchmark
-    const auto shuffled = []() -> vector<wstring> {
-        const wstring lorem[] = {
+    const auto shuffled = []() -> vector<wstring>
+    {
+        const wstring lorem[] =
+        {
             L"Lorem ipsum dolor sit amet, consectetuer adipiscing elit.",
             L"Maecenas porttitor congue massa. Fusce posuere, magna sed",
             L"pulvinar ultricies, purus lectus malesuada libero,",
@@ -148,10 +150,12 @@ int main()
     }();
 
     // shuffled_ptrs is a vector of raw *observing* pointers to the previous shuffled strings
-    const auto shuffled_ptrs = [&]() -> vector<const wchar_t*> {
+    const auto shuffled_ptrs = [&]() -> vector<const wchar_t*>
+    {
         vector<const wchar_t*> v;
 
-        for (const auto& s : shuffled) {
+        for (const auto& s : shuffled)
+        {
             v.push_back(s.c_str());
         }
 
@@ -195,18 +199,32 @@ int main()
     PrintTime(start, finish, "ATL1");
 
     start = PerfCounter();
-    vector<wstring> stl1 = shuffled;
+//  vector<wstring> stl1 = shuffled; // <-- this would be unfairly advantageous for vector<wstring>
+    vector<wstring> stl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "STL1");
 
     start = PerfCounter();
     vector<const wchar_t*> pool1;
     pool1.reserve(shuffled_ptrs.size());
-    for (auto psz : shuffled_ptrs) {
+    for (auto psz : shuffled_ptrs)
+    {
         pool1.push_back(stringPool.AllocString(psz));
     }
     finish = PerfCounter();
     PrintTime(start, finish, "POL1");
+
+    //
+    // Sanity check in debug builds - the vectors should contain the same strings
+    //
+#ifdef _DEBUG
+    for (size_t i = 0; i < shuffled_ptrs.size(); i++)
+    {
+        ATLASSERT(wcscmp(shuffled_ptrs[i], atl1[i].GetString()) == 0);
+        ATLASSERT(wcscmp(shuffled_ptrs[i], stl1[i].c_str()    ) == 0);
+        ATLASSERT(wcscmp(shuffled_ptrs[i], pool1[i]           ) == 0);
+    }
+#endif // _DEBUG
 
     //
     // Creation #2
@@ -218,14 +236,15 @@ int main()
     PrintTime(start, finish, "ATL2");
 
     start = PerfCounter();
-    vector<wstring> stl2 = shuffled;
+    vector<wstring> stl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "STL2");
 
     start = PerfCounter();
     vector<const wchar_t*> pool2;
     pool2.reserve(shuffled_ptrs.size());
-    for (auto psz : shuffled_ptrs) {
+    for (auto psz : shuffled_ptrs)
+    {
         pool2.push_back(stringPool.AllocString(psz));
     }
     finish = PerfCounter();
@@ -242,14 +261,15 @@ int main()
     PrintTime(start, finish, "ATL3");
 
     start = PerfCounter();
-    vector<wstring> stl3 = shuffled;
+    vector<wstring> stl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "STL3");
 
     start = PerfCounter();
     vector<const wchar_t*> pool3;
     pool3.reserve(shuffled_ptrs.size());
-    for (auto psz : shuffled_ptrs) {
+    for (auto psz : shuffled_ptrs)
+    {
         pool3.push_back(stringPool.AllocString(psz));
     }
     finish = PerfCounter();
