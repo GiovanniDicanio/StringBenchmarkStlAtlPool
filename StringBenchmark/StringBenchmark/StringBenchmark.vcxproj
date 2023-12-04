@@ -161,7 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precompile.h" />
-    <ClInclude Include="StringPool.h" />
+    <ClInclude Include="StringPool.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

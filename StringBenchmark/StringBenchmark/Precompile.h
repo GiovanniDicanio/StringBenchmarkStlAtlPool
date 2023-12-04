@@ -3,7 +3,7 @@
 
 #include <crtdbg.h>     // _ASSERTE
 #include <wchar.h>      // wcslen, wmemcpy, wcscmp
-#include <new>          // std::bad_alloc
+#include <memory>       // std::unique_ptr, std::make_unique
 
 #include <algorithm>    // std::shuffle, std::sort
 #include <iostream>     // std::cout

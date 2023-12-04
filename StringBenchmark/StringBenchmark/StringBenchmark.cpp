@@ -20,18 +20,18 @@
 //                              Includes
 //---------------------------------------------------------------------------------------
 
-#include <crtdbg.h>     // _ASSERTE
-#include <algorithm>    // std::shuffle, std::sort
-#include <iostream>     // std::cout
-#include <random>       // std::mt19937
-#include <string>       // std::wstring
-#include <vector>       // std::vector
+#include <crtdbg.h>         // _ASSERTE
+#include <algorithm>        // std::shuffle, std::sort
+#include <iostream>         // std::cout
+#include <random>           // std::mt19937
+#include <string>           // std::wstring
+#include <vector>           // std::vector
 
-#include <atlstr.h>     // CString
+#include <atlstr.h>         // CString
 
-#include <windows.h>    // Windows SDK API
+#include <windows.h>        // Windows SDK API
 
-#include "StringPool.h" // Custom string pool allocator
+#include "StringPool.hpp"   // Custom string pool allocator
 
 
 using std::cout;
@@ -101,7 +101,8 @@ inline bool CompareAtl(const CString& s1, const CString& s2)
 //---------------------------------------------------------------------------------------
 int main()
 {
-    cout << " *** String Benchmark (2023) -- by Giovanni Dicanio *** \n\n";
+    cout << " *** String Benchmark (2023) -- by Giovanni Dicanio *** \n";
+    cout << "     [STL-based version] \n\n";
 
     // Build a vector of shuffled strings that will be used for the benchmark
     const auto shuffled = []() -> vector<wstring>
@@ -179,7 +180,7 @@ int main()
     long long start = 0;
     long long finish = 0;
 
-    CStringPoolAllocator stringPool;
+    StringPoolAllocator stringPool;
 
 
     //
