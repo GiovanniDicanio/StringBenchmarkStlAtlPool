@@ -7,7 +7,14 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 
 
-#include "StringPool.hpp"
+#include "StringPool.hpp"   // String Pool Allocator header
+
+#include <Windows.h>        // Windows Platform SDK
+
+#include <crtdbg.h>         // _ASSERTE
+#include <wchar.h>          // wmemcpy
+
+#include <new>              // std::bad_alloc
 
 
 //
@@ -78,13 +85,13 @@ PWSTR CStringPoolAllocator::AllocString(const WCHAR* pchBegin, const WCHAR* pchE
 
     // Size the new chunk using the padded slot size
     const SIZE_T cbAlloc = RoundUp(cchSlot * sizeof(WCHAR) + sizeof(ChunkHeader),
-        m_cbGranularity);
+                                   m_cbGranularity);
 
     // Allocate memory for the new chunk
     BYTE* const pbNext = static_cast<BYTE*>(VirtualAlloc(nullptr,
-        cbAlloc,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE));
+                                                         cbAlloc,
+                                                         MEM_RESERVE | MEM_COMMIT,
+                                                         PAGE_READWRITE));
     if (pbNext == nullptr)
     {
         // Memory allocation failed

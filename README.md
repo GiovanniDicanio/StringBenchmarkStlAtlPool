@@ -12,7 +12,9 @@ The code compiles cleanly at warning level 4 (`/W4`) with VS 2022, in both 64-bi
 
 The benchmark code is in the [`StringBenchmarkStlAtlPool.cpp`](./StringBenchmarkStlAtlPool/StringBenchmarkStlAtlPool.cpp) file.
 
-There is also an Excel file containing a [sample of benchmark results](./Benchmark_Results.xlsx).
+There is also an Excel file containing a [sample of benchmark results](./docs/Benchmark_Results.xlsx).
+
+![Sample benchmark run](./docs/images/cpp_pool_allocator_results_create.png)
 
 (The pool allocator code is based on an initial idea in a blog post published on The Old New Thing blog; the [original code](./StringBenchmarkStlAtlPool/original_code.cpp) from that blog post is included in this repo.)
 
