@@ -3,8 +3,7 @@
 
 by Giovanni Dicanio
 
-Related blog post:
-https://giodicanio.com/2026/11/15/c-plus-plus-string-benchmark-stl-vs-atl-vs-custom-pool-allocator-2026/
+Related [blog post](https://giodicanio.com/2026/11/15/c-plus-plus-string-benchmark-stl-vs-atl-vs-custom-pool-allocator-2026-11-14/).
 
 The **string pool allocator code** is implemented in the [`StringPool.hpp`](./StringBenchmarkStlAtlPool/StringPool.hpp) 
 and [`StringPool.cpp`](./StringBenchmarkStlAtlPool/StringPool.cpp) files.
