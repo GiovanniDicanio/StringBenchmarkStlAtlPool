@@ -11,7 +11,7 @@
 // AUTHOR:  Giovanni Dicanio
 //
 // -------------------------------------------------------------------------------------
-// Last update: 2026, November 14th
+// Last update: 2026, November 15th
 //
 // Minimum C++ Language Standard: C++17
 // IDE: VS 2022
@@ -24,11 +24,12 @@
 
 #pragma once
 
-#include <crtdbg.h>     // _ASSERTE
-#include <wchar.h>      // wcslen, wmemcpy
-#include <new>          // std::bad_alloc
-
 #include <Windows.h>    // Windows Platform SDK
+
+#include <crtdbg.h>     // _ASSERTE
+#include <wchar.h>      // wcslen
+
+#include <new>          // std::bad_alloc
 
 
 //----------------------------------------------------------------------------------------

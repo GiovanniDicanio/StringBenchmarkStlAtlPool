@@ -22,8 +22,12 @@
 
 #include "StringPool.hpp"   // Custom string pool allocator
 
+#include <Windows.h>        // Windows SDK API
+
+#include <atlstr.h>         // CString
+
 #include <crtdbg.h>         // _ASSERTE
-#include <string.h>         // _stricmp
+#include <wchar.h>          // wcscmp
 
 #include <algorithm>        // std::shuffle, std::sort
 #include <iostream>         // std::cout
@@ -31,10 +35,6 @@
 #include <sstream>          // std::wistringstream
 #include <string>           // std::wstring
 #include <vector>           // std::vector
-
-#include <atlstr.h>         // CString
-
-#include <windows.h>        // Windows SDK API
 
 
 using std::cout;
