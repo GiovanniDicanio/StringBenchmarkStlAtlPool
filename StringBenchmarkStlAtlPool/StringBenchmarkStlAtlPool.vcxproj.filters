@@ -15,18 +15,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="StringBenchmark.cpp">
+    <ClCompile Include="StringBenchmarkStlAtlPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Precompile.cpp">
+    <ClCompile Include="StringPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Precompile.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StringPool.h">
+    <ClInclude Include="StringPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

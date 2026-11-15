@@ -12,7 +12,7 @@
 // (STL friendly thanks to SSO).
 //
 // Uncomment the following line for testing with tiny strings:
-//#define TEST_TINY_STRINGS     1
+// #define TEST_TINY_STRINGS     1
 //
 
 
@@ -20,24 +20,27 @@
 //                              Includes
 //---------------------------------------------------------------------------------------
 
-#include <crtdbg.h>     // _ASSERTE
-#include <algorithm>    // std::shuffle, std::sort
-#include <iostream>     // std::cout
-#include <random>       // std::mt19937
-#include <string>       // std::wstring
-#include <vector>       // std::vector
+#include "StringPool.hpp"   // Custom string pool allocator
 
-#include <atlstr.h>     // CString
+#include <crtdbg.h>         // _ASSERTE
+#include <string.h>         // _stricmp
 
-#include <windows.h>    // Windows SDK API
+#include <algorithm>        // std::shuffle, std::sort
+#include <iostream>         // std::cout
+#include <random>           // std::mt19937
+#include <sstream>          // std::wistringstream
+#include <string>           // std::wstring
+#include <vector>           // std::vector
 
-#include "StringPool.h" // Custom string pool allocator
+#include <atlstr.h>         // CString
+
+#include <windows.h>        // Windows SDK API
 
 
 using std::cout;
 using std::vector;
 using std::wstring;
-
+using ATL::CStringW;
 
 
 //---------------------------------------------------------------------------------------
@@ -73,8 +76,19 @@ inline void PrintTime(const long long start, const long long finish, const char*
 // std::wstring uses wmemcmp for comparisons (file: <xstring>; line: 235).
 // On the other hand, ATL CString uses wcscmp (file: <cstringt.h>; line: 564).
 //
-// To make string comparisons uniform, I introduced the following helper functions
-// to always call wcscmp.
+// In VS 2022 the source files and lines are the following:
+//
+// - std::wstring:
+//      File: __msvc_string_view.hpp
+//      Line: 294
+//
+// - CString:
+//      File: cstringt.h
+//      Line: 572
+//
+//
+// To make string comparisons *uniform*, I introduced the following helper functions
+// that always call wcscmp.
 //
 //---------------------------------------------------------------------------------------
 
@@ -83,71 +97,142 @@ inline bool ComparePool(const wchar_t* psz1, const wchar_t* psz2)
     return wcscmp(psz1, psz2) < 0;
 }
 
-inline bool CompareStl(const std::wstring& s1, const std::wstring& s2)
+inline bool CompareStl(const wstring& s1, const wstring& s2)
 {
     return wcscmp(s1.c_str(), s2.c_str()) < 0;
 }
 
-inline bool CompareAtl(const CString& s1, const CString& s2)
+inline bool CompareAtl(const CStringW& s1, const CStringW& s2)
 {
-    // return wcscmp(s1, s2) < 0;
-    // ATL CString already uses wcscmp
-    return s1 < s2;
+    return wcscmp(s1.GetString(), s2.GetString()) < 0;
 }
 
 
 //---------------------------------------------------------------------------------------
 // Benchmark
 //---------------------------------------------------------------------------------------
-int main()
+
+#ifndef TEST_TINY_STRINGS
+
+// Build string data set for ordinary benchmark (no SSO)
+vector<wstring> BuildStringsForBenchmark()
 {
-    cout << " *** String Benchmark (2023) -- by Giovanni Dicanio *** \n\n";
-
-    // Build a vector of shuffled strings that will be used for the benchmark
-    const auto shuffled = []() -> vector<wstring>
+    const wstring lorem[] =
     {
-        const wstring lorem[] =
-        {
-            L"Lorem ipsum dolor sit amet, consectetuer adipiscing elit.",
-            L"Maecenas porttitor congue massa. Fusce posuere, magna sed",
-            L"pulvinar ultricies, purus lectus malesuada libero,",
-            L"sit amet commodo magna eros quis urna.",
-            L"Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
-            L"Pellentesque habitant morbi tristique senectus et netus et",
-            L"malesuada fames ac turpis egestas. Proin pharetra nonummy pede.",
-            L"Mauris et orci. [*** add more chars to prevent SSO ***]"
-        };
+        L"Lorem ipsum dolor sit amet, consectetuer adipiscing elit.",
+        L"Maecenas porttitor congue massa. Fusce posuere, magna sed",
+        L"pulvinar ultricies, purus lectus malesuada libero,",
+        L"sit amet commodo magna eros quis urna.",
+        L"Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        L"Pellentesque habitant morbi tristique senectus et netus et",
+        L"malesuada fames ac turpis egestas. Proin pharetra nonummy pede.",
+        L"Mauris et orci. [*** add more chars to prevent SSO ***]"
+    };
 
-        vector<wstring> v;
+    // Split the lorem lines into a vocabulary of words
+    vector<wstring> words;
+    for (const auto& line : lorem)
+    {
+        std::wistringstream iss(line);
+        wstring word;
+        while (iss >> word)
+        {
+            words.push_back(word);
+        }
+    }
 
 #ifdef _DEBUG
-        // Just a few strings in *slow running* debug builds
-        constexpr int kStringRepeatCount = 10;
+    constexpr int kStringCount = 80;                // few strings in slow debug builds
 #else
-        // Lots of strings in release builds
-        constexpr int kStringRepeatCount = 400 * 1000; // 400K
+    constexpr int kStringCount = 8 * 400 * 1000;    // 3'200'000 in release builds
 #endif // _DEBUG
 
-        for (int i = 0; i < kStringRepeatCount ; ++i)
+    constexpr size_t kMinLength = 40;   // > SSO capacity (7 wchar_t's)
+    constexpr size_t kMaxLength = 100;
+
+    std::mt19937 prng(1987);            // 1987 : Amiga 500! :)
+
+    // To pick random words
+    std::uniform_int_distribution<size_t> wordDist(0, words.size() - 1);
+
+    // To pick random lengths
+    std::uniform_int_distribution<size_t> lengthDist(kMinLength, kMaxLength);
+
+    vector<wstring> v;
+    v.reserve(kStringCount);
+
+    for (int i = 0; i < kStringCount; ++i)
+    {
+        // Random target length, independent of the string content
+        const size_t length = lengthDist(prng);
+
+        // Fill with random words, then cut to the target length
+        wstring s;
+        while (s.size() < length)
         {
-            for (const auto & s : lorem)
-            {
-#ifdef TEST_TINY_STRINGS
-                // Tiny strings
-                UNREFERENCED_PARAMETER(s);
-                v.push_back(L"#" + std::to_wstring(i));
-#else
-                v.push_back(s + L" (#" + std::to_wstring(i) + L")");
-#endif
-            }
+            s += words[wordDist(prng)];
+            s += L' ';
         }
+        s.resize(length);
 
-        std::mt19937 prng(1987);    // 1987 : Amiga 500! :)
+        // Unique suffix
+        s += L" (#" + std::to_wstring(i) + L")";
 
-        std::shuffle(v.begin(), v.end(), prng);
+        v.push_back(std::move(s));
+    }
 
-        return v;
-    }();
+    std::shuffle(v.begin(), v.end(), prng);
+
+    return v;
+}
+
+#else
+
+// Build string data set with small strings that enable SSO
+vector<wstring> BuildStringsForBenchmark()
+{
+
+#ifdef _DEBUG
+    constexpr int kStringCount = 80;                // few strings in slow debug builds
+#else
+    constexpr int kStringCount = 8 * 400 * 1000;    // 3'200'000 in release builds
+#endif // _DEBUG
+
+    std::mt19937 prng(1987);            // 1987 : Amiga 500! :)
+
+    vector<wstring> v;
+    v.reserve(kStringCount);
+
+    for (int i = 0; i < kStringCount; ++i)
+    {
+        // Tiny strings
+        v.push_back(L"#" + std::to_wstring(i));
+    }
+
+    std::shuffle(v.begin(), v.end(), prng);
+
+    return v;
+}
+
+#endif // TEST_TINY_STRINGS
+
+
+int main()
+{
+    cout << "\n ******************************************************";
+    cout << "\n **  String Benchmark (2026) -- by Giovanni Dicanio  **";
+    cout << "\n **                                                  **";
+    cout << "\n **      Compare ATL vs. STL vs. Pool Allocator      **";
+    cout << "\n ****************************************************** \n";
+
+    //
+    // Prepare string data for the benchmark
+    //
+
+    cout << "\nBuilding string data for the benchmark...";
+
+    // Build a vector of shuffled strings that will be used for the benchmark
+    const auto shuffled = BuildStringsForBenchmark();
 
     // shuffled_ptrs is a vector of raw *observing* pointers to the previous shuffled strings
     const auto shuffled_ptrs = [&]() -> vector<const wchar_t*>
@@ -162,9 +247,13 @@ int main()
         return v;
     }();
 
+    cout << "Done.\n\n";
+
+
 #ifdef TEST_TINY_STRINGS
-    cout << "Testing tiny strings (STL friendly thanks to SSO).\n";
-#endif
+        cout << "Testing tiny strings (STL friendly thanks to SSO). \n\n";
+#endif // TEST_TINY_STRINGS
+
 
     cout << "String count: ";
     if (shuffled.size() > 1000)
@@ -175,6 +264,7 @@ int main()
     {
         cout << shuffled.size() << "\n\n";
     }
+
 
     long long start = 0;
     long long finish = 0;
@@ -194,7 +284,7 @@ int main()
     //
 
     start = PerfCounter();
-    vector<ATL::CStringW> atl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
+    vector<CStringW> atl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "ATL1");
 
@@ -209,10 +299,11 @@ int main()
     pool1.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
-        pool1.push_back(stringPool.AllocString(psz));
+        pool1.push_back(stringPool.DupString(psz));
     }
     finish = PerfCounter();
     PrintTime(start, finish, "POL1");
+
 
     //
     // Sanity check in debug builds - the vectors should contain the same strings
@@ -226,12 +317,13 @@ int main()
     }
 #endif // _DEBUG
 
+
     //
     // Creation #2
     //
 
     start = PerfCounter();
-    vector<ATL::CStringW> atl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
+    vector<CStringW> atl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "ATL2");
 
@@ -245,7 +337,7 @@ int main()
     pool2.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
-        pool2.push_back(stringPool.AllocString(psz));
+        pool2.push_back(stringPool.DupString(psz));
     }
     finish = PerfCounter();
     PrintTime(start, finish, "POL2");
@@ -256,7 +348,7 @@ int main()
     //
 
     start = PerfCounter();
-    vector<ATL::CStringW> atl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
+    vector<CStringW> atl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
     finish = PerfCounter();
     PrintTime(start, finish, "ATL3");
 
@@ -270,10 +362,11 @@ int main()
     pool3.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
-        pool3.push_back(stringPool.AllocString(psz));
+        pool3.push_back(stringPool.DupString(psz));
     }
     finish = PerfCounter();
     PrintTime(start, finish, "POL3");
+
 
     cout << '\n';
 
@@ -344,3 +437,4 @@ int main()
     finish = PerfCounter();
     PrintTime(start, finish, "POL3");
 }
+
