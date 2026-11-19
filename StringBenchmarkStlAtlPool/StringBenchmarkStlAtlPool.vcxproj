@@ -128,7 +128,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="StringBenchmarkStlAtlPool.cpp" />
-    <ClCompile Include="StringPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StringPool.hpp" />
