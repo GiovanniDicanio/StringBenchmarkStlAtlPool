@@ -12,7 +12,7 @@
 // (STL friendly thanks to SSO).
 //
 // Uncomment the following line for testing with tiny strings:
-// #define TEST_TINY_STRINGS     1
+//#define TEST_TINY_STRINGS     1
 //
 
 
@@ -22,14 +22,13 @@
 
 #include "StringPool.hpp"   // Custom string pool allocator
 
-#include <Windows.h>        // Windows SDK API
-
 #include <atlstr.h>         // CString
 
 #include <crtdbg.h>         // _ASSERTE
 #include <wchar.h>          // wcscmp
 
 #include <algorithm>        // std::shuffle, std::sort
+#include <chrono>           // std::chrono::steady_clock
 #include <iostream>         // std::cout
 #include <random>           // std::mt19937
 #include <sstream>          // std::wistringstream
@@ -47,23 +46,15 @@ using ATL::CStringW;
 // Performance Counter Helpers
 //---------------------------------------------------------------------------------------
 
-inline long long PerfCounter() noexcept
-{
-    LARGE_INTEGER li;
-    QueryPerformanceCounter(&li);
-    return li.QuadPart;
-}
+// std::chrono::steady_clock is monotonic; with MSVC it's implemented using QueryPerformanceCounter
+using Clock = std::chrono::steady_clock;
 
-inline long long PerfFrequency() noexcept
+inline void PrintTime(const Clock::time_point start,
+                      const Clock::time_point finish,
+                      const char* const message)
 {
-    LARGE_INTEGER li;
-    QueryPerformanceFrequency(&li);
-    return li.QuadPart;
-}
-
-inline void PrintTime(const long long start, const long long finish, const char* const message)
-{
-    cout << message << ": " << (finish - start) * 1000.0 / PerfFrequency() << " ms" << std::endl;
+    const std::chrono::duration<double, std::milli> elapsed = finish - start;
+    cout << message << ": " << elapsed.count() << " ms" << std::endl;
 }
 
 
@@ -266,8 +257,8 @@ int main()
     }
 
 
-    long long start = 0;
-    long long finish = 0;
+    Clock::time_point start;
+    Clock::time_point finish;
 
     CStringPoolAllocator stringPool;
 
@@ -283,25 +274,25 @@ int main()
     // Creation #1
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<CStringW> atl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL1");
 
-    start = PerfCounter();
+    start = Clock::now();
 //  vector<wstring> stl1 = shuffled; // <-- this would be unfairly advantageous for vector<wstring>
     vector<wstring> stl1(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL1");
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<const wchar_t*> pool1;
     pool1.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
         pool1.push_back(stringPool.DupString(psz));
     }
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL1");
 
 
@@ -322,24 +313,24 @@ int main()
     // Creation #2
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<CStringW> atl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL2");
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<wstring> stl2(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL2");
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<const wchar_t*> pool2;
     pool2.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
         pool2.push_back(stringPool.DupString(psz));
     }
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL2");
 
 
@@ -347,24 +338,24 @@ int main()
     // Creation #3
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<CStringW> atl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL3");
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<wstring> stl3(shuffled_ptrs.begin(), shuffled_ptrs.end());
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL3");
 
-    start = PerfCounter();
+    start = Clock::now();
     vector<const wchar_t*> pool3;
     pool3.reserve(shuffled_ptrs.size());
     for (auto psz : shuffled_ptrs)
     {
         pool3.push_back(stringPool.DupString(psz));
     }
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL3");
 
 
@@ -382,19 +373,19 @@ int main()
     // Sort #1
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(atl1.begin(), atl1.end(), CompareAtl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL1");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(stl1.begin(), stl1.end(), CompareStl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL1");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(pool1.begin(), pool1.end(), ComparePool);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL1");
 
 
@@ -402,19 +393,19 @@ int main()
     // Sort #2
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(atl2.begin(), atl2.end(), CompareAtl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL2");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(stl2.begin(), stl2.end(), CompareStl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL2");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(pool2.begin(), pool2.end(), ComparePool);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL2");
 
 
@@ -422,19 +413,19 @@ int main()
     // Sort #3
     //
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(atl3.begin(), atl3.end(), CompareAtl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "ATL3");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(stl3.begin(), stl3.end(), CompareStl);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "STL3");
 
-    start = PerfCounter();
+    start = Clock::now();
     sort(pool3.begin(), pool3.end(), ComparePool);
-    finish = PerfCounter();
+    finish = Clock::now();
     PrintTime(start, finish, "POL3");
 }
 

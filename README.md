@@ -6,7 +6,7 @@ by Giovanni Dicanio
 Related [blog post](https://giodicanio.com/2026/11/15/c-plus-plus-string-benchmark-stl-vs-atl-vs-custom-pool-allocator-2026-11-14/).
 
 The **string pool allocator code** is implemented in the [`StringPool.hpp`](./StringBenchmarkStlAtlPool/StringPool.hpp) 
-and [`StringPool.cpp`](./StringBenchmarkStlAtlPool/StringPool.cpp) files.
+file (it's header-only).
 
 The code compiles cleanly at warning level 4 (`/W4`) with VS 2022, in both 64-bit and 32-bit builds. It requires at least C++17; it builds successfully in C++20 mode as well.
 

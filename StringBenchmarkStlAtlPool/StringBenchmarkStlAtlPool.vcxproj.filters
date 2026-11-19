@@ -18,9 +18,6 @@
     <ClCompile Include="StringBenchmarkStlAtlPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="StringPool.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StringPool.hpp">
