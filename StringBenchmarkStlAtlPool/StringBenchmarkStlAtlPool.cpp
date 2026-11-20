@@ -12,7 +12,7 @@
 // (STL friendly thanks to SSO).
 //
 // Uncomment the following line for testing with tiny strings:
-// #define TEST_TINY_STRINGS     1
+//#define TEST_TINY_STRINGS     1
 //
 
 
