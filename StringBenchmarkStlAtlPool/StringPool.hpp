@@ -13,9 +13,9 @@
 // AUTHOR:  Giovanni Dicanio
 //
 // -------------------------------------------------------------------------------------
-// Last update: 2026, November 19th
+// Last update: 2026, November 20th
 //
-// Minimum C++ Language Standard: C++17
+// Minimum C++ Language Standard: C++17 (builds cleanly also in C++20 mode)
 // IDE: VS 2022
 // Code compiles cleanly at /W4.
 //
